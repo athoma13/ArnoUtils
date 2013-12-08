@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ArnoUtils2</name>
+    </assembly>
+    <members>
+        <member name="T:ArnoUtils2.Connect">
+            <summary>The object for implementing an Add-in.</summary>
+            <seealso class='IDTExtensibility2' />
+        </member>
+        <member name="M:ArnoUtils2.Connect.#ctor">
+            <summary>Implements the constructor for the Add-in object. Place your initialization code within this method.</summary>
+        </member>
+        <member name="M:ArnoUtils2.Connect.OnConnection(System.Object,Extensibility.ext_ConnectMode,System.Object,System.Array@)">
+            <summary>Implements the OnConnection method of the IDTExtensibility2 interface. Receives notification that the Add-in is being loaded.</summary>
+            <param term='application'>Root object of the host application.</param>
+            <param term='connectMode'>Describes how the Add-in is being loaded.</param>
+            <param term='addInInst'>Object representing this Add-in.</param>
+            <seealso class='IDTExtensibility2' />
+        </member>
+        <member name="M:ArnoUtils2.Connect.OnDisconnection(Extensibility.ext_DisconnectMode,System.Array@)">
+            <summary>Implements the OnDisconnection method of the IDTExtensibility2 interface. Receives notification that the Add-in is being unloaded.</summary>
+            <param term='disconnectMode'>Describes how the Add-in is being unloaded.</param>
+            <param term='custom'>Array of parameters that are host application specific.</param>
+            <seealso class='IDTExtensibility2' />
+        </member>
+        <member name="M:ArnoUtils2.Connect.OnAddInsUpdate(System.Array@)">
+            <summary>Implements the OnAddInsUpdate method of the IDTExtensibility2 interface. Receives notification when the collection of Add-ins has changed.</summary>
+            <param term='custom'>Array of parameters that are host application specific.</param>
+            <seealso class='IDTExtensibility2' />		
+        </member>
+        <member name="M:ArnoUtils2.Connect.OnStartupComplete(System.Array@)">
+            <summary>Implements the OnStartupComplete method of the IDTExtensibility2 interface. Receives notification that the host application has completed loading.</summary>
+            <param term='custom'>Array of parameters that are host application specific.</param>
+            <seealso class='IDTExtensibility2' />
+        </member>
+        <member name="M:ArnoUtils2.Connect.OnBeginShutdown(System.Array@)">
+            <summary>Implements the OnBeginShutdown method of the IDTExtensibility2 interface. Receives notification that the host application is being unloaded.</summary>
+            <param term='custom'>Array of parameters that are host application specific.</param>
+            <seealso class='IDTExtensibility2' />
+        </member>
+        <member name="P:ArnoUtils2.Mapping.Action">
+            <summary>
+            Gets Action
+            </summary>
+        </member>
+        <member name="P:ArnoUtils2.Mapping.CommandName">
+            <summary>
+            Gets CommandName
+            </summary>
+        </member>
+        <member name="P:ArnoUtils2.Mapping.UndoName">
+            <summary>
+            Gets UndoName
+            </summary>
+        </member>
+        <member name="P:ArnoUtils2.Mapping.Shortcut">
+            <summary>
+            Gets Shortcut
+            </summary>
+        </member>
+    </members>
+</doc>
