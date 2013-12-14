@@ -26,7 +26,8 @@ namespace ArnoUtils2
             get
             {
                 dynamic d = OriginalElement;
-                return d.Type.AsString;
+                string result = d.Type.AsString;
+                return result.Split('.').Last();
             }
         }
 

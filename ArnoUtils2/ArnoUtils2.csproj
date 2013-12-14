@@ -119,10 +119,9 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="..\..\..\Addins\ArnoUtils2 - For Testing.AddIn">
-      <Link>ArnoUtils2 - For Testing.AddIn</Link>
+    <Content Include="ArnoUtils2.AddIn">
+      <SubType>Designer</SubType>
     </Content>
-    <Content Include="ArnoUtils2.AddIn" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSHARP.Targets" />
   <PropertyGroup>

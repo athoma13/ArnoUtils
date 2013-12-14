@@ -28,16 +28,9 @@ namespace ArnoUtils2
 
     public static class Utilities
     {
-
         private static TextSelection GetTextSelection(DTE2 application)
         {
             return application.ActiveDocument.Selection as TextSelection;
-        }
-
-        private static string GetPropertyName(string fieldName)
-        {
-            var tmp = fieldName.TrimStart('_');
-            return tmp.Substring(0, 1).ToUpperInvariant() + tmp.Substring(1);
         }
 
         private static string GetLocalVariableName(string fieldName)
@@ -135,38 +128,19 @@ namespace ArnoUtils2
         private static CodeElement2[] GetCodeElementsInSelection(TextSelection selection, params vsCMElement[] kinds)
         {
             var result = new List<CodeElement2>();
-            int stPoint;
-            int enPoint;
+            var parent = GetParent(selection.TopPoint);
+            var top = selection.TopPoint.AbsoluteCharOffset;
+            var bottom = selection.BottomPoint.AbsoluteCharOffset;
 
-
-            //If no selection is made, select the whole line
-            if (selection.TopPoint.AbsoluteCharOffset == selection.BottomPoint.AbsoluteCharOffset)
+            foreach (var element in parent.Children.OfType<CodeElement2>())
             {
-                //'Select the whole line
-                stPoint = selection.TopPoint.AbsoluteCharOffset - selection.TopPoint.LineCharOffset;
-                enPoint = stPoint + selection.TopPoint.LineLength + 1;
-            }
-            else
-            {
-                stPoint = selection.TopPoint.AbsoluteCharOffset;
-                enPoint = selection.BottomPoint.AbsoluteCharOffset;
-            }
-
-
-            foreach (var element in GetParent(selection.TopPoint).Children.OfType<CodeElement2>())
-            {
-                if (kinds.Contains(element.Kind)
-                        && element.StartPoint.AbsoluteCharOffset >= stPoint
-                        && element.EndPoint.AbsoluteCharOffset <= enPoint)
+                if (element.StartPoint.AbsoluteCharOffset <= bottom && element.EndPoint.AbsoluteCharOffset >= top)
                 {
                     result.Add(element);
                 }
             }
-
-            return result.OrderBy(c => c.StartPoint.AbsoluteCharOffset).ToArray();
+            return result.ToArray();
         }
-
-
         private static CodeElement FindElement(string name, CodeElements elements, vsCMElement kind)
         {
             return FindElement(name, elements.OfType<CodeElement>(), kind);
@@ -182,7 +156,6 @@ namespace ArnoUtils2
             }
             return null;
         }
-
         private static CodeElement FindLast(vsCMElement kind, CodeElement parent)
         {
             CodeElement result = null;
@@ -218,66 +191,75 @@ namespace ArnoUtils2
             return sb.ToString();
         }
 
-
         private static void CreateOrReplaceProperty(SourceElement sourceElement, GenerationType genType, CodeElement parent)
         {
             var property = (CodeProperty)FindElement(sourceElement.PropertyName, parent.Children, vsCMElement.vsCMElementProperty);
-            if (property == null)
-            {
-                //Create the property...
-
-                var insertAfterElement = FindLast(vsCMElement.vsCMElementProperty, parent) ?? FindLast(vsCMElement.vsCMElementVariable, parent);
-                var newPropertyPoint = insertAfterElement.EndPoint.CreateEditPoint();
-
-                newPropertyPoint.Insert(Environment.NewLine);
-                newPropertyPoint.Insert(string.Format("public {0} {1} {{get; set;}}", sourceElement.Type, sourceElement.PropertyName));
-                property = (CodeProperty)FindElement(sourceElement.PropertyName, parent.Children, vsCMElement.vsCMElementProperty);
-            }
-
-
             var field = (CodeVariable)FindElement(sourceElement.FieldName, parent.Children, vsCMElement.vsCMElementVariable);
-            if (field != null)
-            {
-                if (property.Type.AsString != field.Type.AsString)
-                {
-                    property.Type = field.Type;
-                }
 
-                if (property.Getter.IsShared != field.IsShared)
-                {
-                    property.Getter.IsShared = field.IsShared;
-                    property.Setter.IsShared = field.IsShared;
-                }
+            if (field != null && property != null)
+            {
+                var editPoint = property.GetStartPoint(vsCMPart.vsCMPartBody).CreateEditPoint();
+                editPoint.Delete(property.GetEndPoint(vsCMPart.vsCMPartBody));
+                editPoint.Insert(GetBody(sourceElement, genType));
+
+                var fieldStart = field.StartPoint.CreateEditPoint();
+                var fieldEnd = field.EndPoint;
+                ((CodeElement2)field).RenameSymbol(sourceElement.PropertyName);
+                fieldStart.Delete(fieldEnd);
             }
 
-            if (genType == GenerationType.NotifyableGetterAndSetter && field == null)
+            if (field != null && property == null)
             {
-                var newFieldPoint = parent.GetStartPoint(vsCMPart.vsCMPartBody);
-                var insertAfterElement = FindLast(vsCMElement.vsCMElementVariable, parent);
-                if (insertAfterElement != null) newFieldPoint = insertAfterElement.EndPoint;
-                newFieldPoint.CreateEditPoint().Insert(string.Format("\r\nprivate {0} {1};", sourceElement.Type, sourceElement.FieldName));
+                ((CodeElement2)field).RenameSymbol(sourceElement.PropertyName);
+                var fieldStart = field.GetStartPoint(vsCMPart.vsCMPartNavigate);
+                var editPoint = fieldStart.CreateEditPoint();
+                editPoint.Delete(field.EndPoint);
+                editPoint.Insert(string.Format(" {0} {{{1}}}", sourceElement.PropertyName, GetBody(sourceElement, genType)));
+                property = (CodeProperty)FindElement(sourceElement.PropertyName, parent.Children, vsCMElement.vsCMElementProperty);
+                property.Access = vsCMAccess.vsCMAccessPublic;
             }
 
+            if (field == null && property == null)
+            {
+                var editPoint = (FindLast(vsCMElement.vsCMElementProperty, parent) ?? FindLast(vsCMElement.vsCMElementVariable, parent)).EndPoint.CreateEditPoint();
+                editPoint.Insert(string.Format("public {0} {1} {{{2}}}", sourceElement.Type, sourceElement.PropertyName, GetBody(sourceElement, genType)));
+            }
 
-            var bodyTxt = GetBody(sourceElement, genType);
-            if (genType != GenerationType.NotifyableGetterAndSetter) DeleteField(sourceElement.FieldName, parent);
-
-            var insertPoint = property.GetStartPoint(vsCMPart.vsCMPartBody).CreateEditPoint();
-            insertPoint.Delete(property.GetEndPoint(vsCMPart.vsCMPartBody));
-            insertPoint.Insert(bodyTxt);
-
-            var formatPoint = parent.StartPoint.CreateEditPoint();
-            formatPoint.SmartFormat(parent.EndPoint);
-            //insertPoint.SmartFormat(property.StartPoint);
-
+            if (field == null && property != null)
+            {
+                var editPoint = property.GetStartPoint(vsCMPart.vsCMPartBody).CreateEditPoint();
+                editPoint.Delete(property.GetEndPoint(vsCMPart.vsCMPartBody));
+                editPoint.Insert(GetBody(sourceElement, genType));
+            }
         }
-        
-        private static void DeleteField(string name, CodeElement parent)
+
+        private static void CreateOrReplaceNotifieableProperty(SourceElement sourceElement, CodeElement parent)
         {
-            var element = FindElement(name, parent.Children, vsCMElement.vsCMElementVariable);
-            if (element == null) return;
-            dynamic p = parent;
-            p.RemoveMember(element);
+            var property = (CodeProperty)FindElement(sourceElement.PropertyName, parent.Children, vsCMElement.vsCMElementProperty);
+            var field = (CodeVariable)FindElement(sourceElement.FieldName, parent.Children, vsCMElement.vsCMElementVariable);
+
+            if (field != null && property != null)
+            {
+                var editPoint = property.GetStartPoint(vsCMPart.vsCMPartBody).CreateEditPoint();
+                editPoint.Delete(property.GetEndPoint(vsCMPart.vsCMPartBody));
+                editPoint.Insert(GetBody(sourceElement, GenerationType.NotifyableGetterAndSetter));
+            }
+
+            if (field != null && property == null)
+            {
+                var editPoint = field.EndPoint.CreateEditPoint();
+                editPoint.Insert(string.Format("public {0} {1} {{{2}}}", sourceElement.Type, sourceElement.PropertyName, GetBody(sourceElement, GenerationType.NotifyableGetterAndSetter)));
+            }
+
+            if (field == null && property != null)
+            {
+                var editPoint = property.GetStartPoint(vsCMPart.vsCMPartWholeWithAttributes).CreateEditPoint();
+                editPoint.Insert(string.Format("private {0} {1};\r\n", sourceElement.Type, sourceElement.FieldName));
+                
+                editPoint = property.GetStartPoint(vsCMPart.vsCMPartBody).CreateEditPoint();
+                editPoint.Delete(property.GetEndPoint(vsCMPart.vsCMPartBody));
+                editPoint.Insert(GetBody(sourceElement, GenerationType.NotifyableGetterAndSetter));
+            }
         }
 
         private static void CreateGetterAndSetters(GenerationType genType, DTE2 application)
@@ -289,8 +271,18 @@ namespace ArnoUtils2
 
             foreach (var element in sourceElements)
             {
-                CreateOrReplaceProperty(element, genType, parent);
+                if (genType == GenerationType.NotifyableGetterAndSetter)
+                {
+                    CreateOrReplaceNotifieableProperty(element, parent);
+                }
+                else
+                {
+                    CreateOrReplaceProperty(element, genType, parent);
+                }
             }
+
+            var formatPoint = parent.StartPoint.CreateEditPoint();
+            formatPoint.SmartFormat(parent.EndPoint);
         }
 
         private static bool MakeNotifyable(DTE2 application)
@@ -638,6 +630,21 @@ namespace ArnoUtils2
 
             ctor.GetEndPoint(vsCMPart.vsCMPartBody).CreateEditPoint().Insert(sb.ToString());
             ctor.StartPoint.CreateEditPoint().SmartFormat(ctor.EndPoint);
+        }
+
+        private static vsCMPart[] GetValidStartPoints(CodeElement element)
+        {
+            var result = new List<vsCMPart>();
+            foreach (var v in Enum.GetValues(typeof(vsCMPart)).Cast<vsCMPart>())
+            {
+                try
+                {
+                    element.GetStartPoint(v);
+                    result.Add(v);
+                }
+                catch { }
+            }
+            return result.ToArray();
         }
     }
 }
